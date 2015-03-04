@@ -27,7 +27,7 @@ public class LeapToServo implements Runnable{
 
 
         try {
-            pubnub.subscribe("my_channel", new Callback() {
+            pubnub.subscribe("leap2pi", new Callback() {
                         @Override
                         public void connectCallback(String channel, Object message) {
                         }
