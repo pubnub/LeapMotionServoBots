@@ -1,0 +1,123 @@
+from Pubnub import Pubnub
+from Adafruit_PWM_Servo_Driver import PWM
+
+import RPi.GPIO as GPIO
+import time
+import sys, os
+import json, httplib
+import base64
+import serial
+import smbus
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(4, False)
+GPIO.setup(15, GPIO.IN)
+
+# Reset the connected AVR Chip (matrix driver)
+def resetAVR():
+    GPIO.setup(15, False)
+    time.sleep(0.25)
+    GPIO.setup(15, GPIO.IN)
+    time.sleep(0.25)
+
+
+#Kill PubNub subscription thread
+def _kill(m, n):
+    pubnub.unsubscribe(subchannel)
+
+
+def handleLeft(left_hand):
+    left_yaw = left_hand["left_yaw"]
+    left_pitch = left_hand["left_pitch"]
+    left_byte = left_hand["left_byte"]
+    pwm.setPWM(0, 0, left_yaw)
+    pwm.setPWM(1, 1, left_pitch)
+    return left_byte
+
+def handleRight(right_hand):
+    right_yaw = right_hand["right_yaw"]
+    right_pitch = right_hand["right_pitch"]
+    right_byte = right_hand["right_byte"]
+    pwm.setPWM(2, 2, right_yaw)
+    pwm.setPWM(3, 3, right_pitch)
+    return right_byte
+
+# ==============================Servo & PWM Set Up==============================
+
+# Initialise the PWM device using the default address
+#pwm = PWM(0x40, debug=True)
+pwm = PWM(0x40)
+servoMin = 150  # Min pulse length out of 4096
+servoMax = 600  # Max pulse length out of 4096
+
+bus = smbus.SMBus(1)
+
+
+def setServoPulse(channel, pulse):
+    pulseLength = 1000000                   # 1,000,000 us per second
+    pulseLength /= 60                       # 60 Hz
+    print "%d us per period" % pulseLength
+    pulseLength /= 4096                     # 12 bits of resolution
+    print "%d us per bit" % pulseLength
+    pulse *= 1000
+    pulse /= pulseLength
+    pwm.setPWM(channel, 0, pulse)
+
+pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
+
+# ==============================Define Main==================================
+
+def main():
+
+    resetAVR()
+
+    print("there")
+    pubnub = Pubnub(publish_key   = 'pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96',
+                subscribe_key = 'sub-c-34be47b2-f776-11e4-b559-0619f8945a4f',
+                uuid = "pi")
+
+    channel = 'leap2pi'
+
+    def _connect(m):
+        GPIO.output(4, True)
+
+
+    def _callback(m,n):
+        left_byte = 0
+        right_byte = 0
+        # ==============================Left Hand==============================
+        left_hand = m.get("left_hand",{})
+        if left_hand != {}:
+            left_byte = handleLeft(left_hand)
+            print(left_hand)
+
+        # ==============================Right Hand=============================
+        right_hand = m.get("right_hand",{})
+        if right_hand != {}:
+            right_byte= handleRight(right_hand)
+            print(right_hand)
+
+        byte = left_byte | right_byte
+        print(byte)
+
+        #====send i2c=====#
+        try:
+            bus.write_byte(0x47,byte)
+        except IOError:
+            print("Error!!!!")
+            resetAVR()
+            bus.write_byte(0x47,byte)
+            
+
+    #Catch and Print Error
+    def _error(m):
+        GPIO.output(4, False)
+        print(m)
+    
+    #Subscribe to subchannel, set callback function to  _callback and set error fucntion to _error
+    pubnub.subscribe(channels=channel, callback=_callback, error=_error, connect=_connect)
+
+
+# ==============================Call Main====================================
+
+main()
