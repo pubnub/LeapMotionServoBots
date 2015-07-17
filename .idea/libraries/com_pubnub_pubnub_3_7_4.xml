@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="com.pubnub:pubnub:3.7.4" type="repository">
+    <properties maven-id="com.pubnub:pubnub:3.7.4" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/pubnub/pubnub/3.7.4/pubnub-3.7.4.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/json/json/20090211/json-20090211.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/slf4j/slf4j-api/1.7.5/slf4j-api-1.7.5.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/bouncycastle/bcprov-jdk16/1.46/bcprov-jdk16-1.46.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
