@@ -13,243 +13,280 @@ import com.leapmotion.leap.*;
 import com.pubnub.api.*;
 import org.json.*;
 
-class LeapToServo {
-    private Pubnub pubnub;
-    int old_left_yaw    = 0;
-    int old_left_pitch  = 0;
-    int old_right_yaw    = 0;
-    int old_right_pitch  = 0;
+public class LeapToServo implements Runnable{
 
-    public LeapToServo(){
-        pubnub = new Pubnub("pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96", "sub-c-34be47b2-f776-11e4-b559-0619f8945a4f");
-        pubnub.setUUID("leapController");
+    private Pubnub pubnub;
+    private Controller controller;
+    private boolean running;
+
+    int oldLeftYaw    = 0;
+    int oldLeftPitch  = 0;
+    int oldRightYaw   = 0;
+    int oldRightPitch = 0;
+
+    public LeapToServo(String pubKey, String subKey){
+        pubnub = new Pubnub(pubKey, subKey);
+        pubnub.setUUID("LeapController");
     }
 
-    public void doIt(){
+    public void startTracking(){
         // Create a controller
-        Controller controller = new Controller();
-
-        Runnable r = new Runnable() {
-            @Override public void run() {
-                while (true) {
-                    leapTest(controller);
-                    try {Thread.sleep(50);} catch (InterruptedException e) {e.printStackTrace();}
-                }
-            }
-        };
-        Thread t = new Thread(r);
+        this.controller = new Controller();
+        this.running = true;
+        Thread t = new Thread(this);
         t.start();
 
         // Keep this process running until Enter is pressed
         System.out.println("Press Enter to quit...");
         try {
             System.in.read();
+            this.running=false;
+            t.join();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (InterruptedException e){
+            e.printStackTrace();
         }
-        t.interrupt();
     }
 
-    public static double leftPitchDegreeToPWM(double degree){
-        double a = .00061728395;
+    /**
+     * Take radian reading and return degree value adjusted for our desired range/midpoint of servo range
+     * @param radians Radian value to be converted
+     * @return Adjusted degree value
+     */
+    public static int radiansToAdjustedDegrees(int radians){
+        int degrees = (int) (radians * (180 / Math.PI));
+        degrees = (int) Math.floor(degrees + 90);
+        return degrees;
+    }
+
+    /**
+     * Get a PWM value from degree closely modeled by a quadratic equation
+     * @param degree pitch degree value
+     * @return PWM value
+     */
+    public static double pitchDegreeToPWM(double degree){
+        double a = 0.00061728395;
         double b = 2.38888888889;
         double c = 150;
         return a*(degree*degree) + b*degree + c;
     }
 
-    public static double leftYawDegreeToPWM(double degree){
-        double a = -.00;
+    /**
+     * Get a PWM value from degree closely modeled by a quadratic equation
+     * @param degree pitch degree value
+     * @return PWM value
+     */
+    public static double yawDegreeToPWM(double degree){
+        double a = 0.0;
         double b = 3.19444444;
         double c = 150;
         return a*(degree*degree) + b*degree + c;
     }
 
-    public static int fingersToByte(Hand hand){
+    /**
+     * Force a value to be between 0 and 180 degrees for servo
+     * @param value degree value returned by Leap Controller
+     * @return normalized value between 0-180
+     */
+    public static int normalizeDegree(int value){
+        value = (value > 90)  ? 90  : value;
+        value = (value < -90) ? -90 : value;
+        return value+90;
+    }
+
+    public static int fingersToByte(Hand hand) {
         int theByte = 0;
         int value = 0;
 
-
-        if (hand.isRight()){
-                for (int j = 1; j < 5; ++j){
-                    switch (j) {
-                        case 1:
-                            value = 1;
-                            break;
-                        case 2:
-                            value = 2;
-                            break;
-                        case 3:
-                            value = 3;
-                            break;
-                        case 4:
-                            value = 0;
-                            break;
-                        default:
-                            break;
-                    }
-                if(hand.fingers().get(j).isExtended()){
-                    theByte = theByte | (int) Math.pow(2.0, value);
+        if (hand.isRight()) {
+            for (int j = 1; j < 5; ++j) {
+                switch (j) {
+                    case 4:
+                        value = 0;
+                        break;
+                    default:
+                        value = j;
+                        break;
+                }
+                if (hand.fingers().get(j).isExtended()) {
+                    theByte = theByte | (1 << value);
                 }
             }
-            theByte = theByte << 4;
-        }
-        else if (hand.isLeft()){
-                for (int i = 1; i < 5; ++i){
-                    switch (i) {
-                        case 1:
-                            value = 0;
-                            break;
-                        case 2:
-                            value = 3;
-                            break;
-                        case 3:
-                            value = 2;
-                            break;
-                        case 4:
-                            value = 1;
-                            break;
-                        default:
-                            break;
-                    }
-                    if(hand.fingers().get(i).isExtended()){
-                        theByte = theByte | (int) Math.pow(2.0, value);
-                    }
+            theByte <<= 4;
+        } else if (hand.isLeft()) {
+            for (int i = 1; i < 5; ++i) { //  i = 4; v = 1
+                switch (i) {
+                    case 1:
+                        value = 0;
+                        break;
+                    case 2:
+                        value = 3;
+                        break;
+                    case 3:
+                        value = 2;
+                        break;
+                    case 4:
+                        value = 1;
+                        break;
+                    default:
+                        break;
                 }
+                if (hand.fingers().get(i).isExtended()) {
+                    theByte = theByte | (1 << value);
+                }
+            }
         }
-
         return theByte;
-
     }
 
+    public JSONObject handleHand(Hand hand){
+        boolean isLeft   = hand.isLeft();
+        String handName  = (isLeft) ? "left" : "right";
 
+        Vector direction = hand.direction();
 
-    public JSONObject handleLeft(Hand left_hand){
+        int yaw   = (int) Math.toDegrees(direction.yaw());
+        int pitch = (int) Math.toDegrees(direction.pitch());
 
-        JSONObject payloadleft = new JSONObject();
+        // Normalize Yaw and Pitch
+        yaw    = normalizeDegree(yaw);
+        pitch *= (isLeft) ? -1 : 1;
+        pitch  = normalizeDegree(pitch);
 
-        Vector direction = left_hand.direction();
+        // Get PWM Values
+        yaw   = (int) yawDegreeToPWM(yaw);
+        pitch = (int) pitchDegreeToPWM(pitch);
 
-        int left_yaw    = 0;
-        int left_pitch  = 0;
-
-        left_yaw = (int) Math.toDegrees(direction.yaw());
-        left_pitch = (int) Math.toDegrees(direction.pitch());
-
-        //upper bound
-        left_yaw = (left_yaw > 90)  ? 90  : left_yaw;
-        //lower bound
-        left_yaw = (left_yaw < -90) ? -90 : left_yaw;
-        //normalize
-        left_yaw += 90;
-
-        left_pitch *= -1;
-        //upper bound
-        left_pitch = (left_pitch > 90)  ? 90  : left_pitch;
-        //lower bound
-        left_pitch = (left_pitch < -90) ? -90 : left_pitch;
-        //normalize
-        left_pitch += 90;
-
-
-        left_yaw = (int) leftYawDegreeToPWM(left_yaw);
-        left_pitch = (int) leftPitchDegreeToPWM(left_pitch);
-
-        int theByte = fingersToByte(left_hand);
-        if( (Math.abs(old_left_pitch - left_pitch) > 5)  || (Math.abs(old_left_yaw - left_yaw) > 5) ) {
-            System.out.println("Old left Yaw: " + old_left_yaw + " Current left yaw: " + left_yaw);
-            System.out.println("Old left pitch: " + old_left_pitch + " Current left pitch: " + left_pitch);
+        JSONObject payloadLeft = new JSONObject();
+        int theByte = fingersToByte(hand);
+        int oldYaw    = (isLeft) ? oldLeftYaw   : oldRightYaw;
+        int oldPitch  = (isLeft) ? oldLeftPitch : oldRightPitch;
+        if( (Math.abs(oldPitch - pitch) > 5)  || (Math.abs(oldYaw - yaw) > 5) ) {
+            System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
+            System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
-                payloadleft.put("left_yaw", left_yaw);
-                payloadleft.put("left_pitch", left_pitch);
-                payloadleft.put("left_byte", theByte);
+                payloadLeft.put(handName + "_yaw",   yaw);
+                payloadLeft.put(handName + "_pitch", pitch);
+                payloadLeft.put(handName + "_byte",  theByte);
             } catch (JSONException e) {
-                System.out.println(e);
+                e.printStackTrace();
             }
-            old_left_yaw = left_yaw;
-            old_left_pitch = left_pitch;
+            if (isLeft) {
+                this.oldLeftYaw   = yaw;
+                this.oldLeftPitch = pitch;
+            } else {
+                this.oldRightYaw   = yaw;
+                this.oldRightPitch = pitch;
+            }
         }
         else{
             System.out.println("Beneath the threshold");
-            System.out.println("Old left Yaw: " + old_left_yaw + " Current left yaw: " + left_yaw);
-            System.out.println("Old left pitch: " + old_left_pitch + " Current left pitch: " + left_pitch);
+            System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
+            System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
-                payloadleft.put("left_yaw", old_left_yaw);
-                payloadleft.put("left_pitch", old_left_pitch);
-                payloadleft.put("left_byte", theByte);
+                payloadLeft.put(handName + "_yaw", oldYaw);
+                payloadLeft.put(handName + "_pitch", oldPitch);
+                payloadLeft.put(handName + "_byte", theByte);
             } catch (JSONException e) {
-                System.out.println(e);
+                e.printStackTrace();
             }
-
         }
-        return payloadleft;
+        return payloadLeft;
+    }
 
+    public JSONObject handleLeft(Hand left_hand){
+        Vector direction = left_hand.direction();
+
+        int leftYaw   = (int) Math.toDegrees(direction.yaw());
+        int leftPitch = (int) Math.toDegrees(direction.pitch());
+
+        // Normalize Yaw and Pitch
+        leftYaw    = normalizeDegree(leftYaw);
+        leftPitch *= -1;
+        leftPitch  = normalizeDegree(leftPitch);
+
+        // Get PWM Values
+        leftYaw   = (int) yawDegreeToPWM(leftYaw);
+        leftPitch = (int) pitchDegreeToPWM(leftPitch);
+
+        JSONObject payloadLeft = new JSONObject();
+        int theByte = fingersToByte(left_hand);
+        if( (Math.abs(oldLeftPitch - leftPitch) > 5)  || (Math.abs(oldLeftYaw - leftYaw) > 5) ) {
+            System.out.println("Old left Yaw: " + oldLeftYaw + " Current left yaw: " + leftYaw);
+            System.out.println("Old left pitch: " + oldLeftPitch + " Current left pitch: " + leftPitch);
+            try {
+                payloadLeft.put("left_yaw",   leftYaw);
+                payloadLeft.put("left_pitch", leftPitch);
+                payloadLeft.put("left_byte",  theByte);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            oldLeftYaw = leftYaw;
+            oldLeftPitch = leftPitch;
+        }
+        else{
+            System.out.println("Beneath the threshold");
+            System.out.println("Old left Yaw: " + oldLeftYaw + " Current left yaw: " + leftYaw);
+            System.out.println("Old left pitch: " + oldLeftPitch + " Current left pitch: " + leftPitch);
+            try {
+                payloadLeft.put("left_yaw", oldLeftYaw);
+                payloadLeft.put("left_pitch", oldLeftPitch);
+                payloadLeft.put("left_byte", theByte);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return payloadLeft;
     }
 
     public JSONObject handleRight(Hand right_hand){
-        JSONObject payloadright = new JSONObject();
-
         Vector direction = right_hand.direction();
         //Vector normal = hand.palmNormal();
 
-        int right_yaw   = 0;
-        int right_pitch = 0;
+        int rightYaw = (int) Math.toDegrees(direction.yaw());
+        int rightPitch = (int) Math.toDegrees(direction.pitch());
 
-        right_yaw = (int) Math.toDegrees(direction.yaw());
-        right_pitch = (int) Math.toDegrees(direction.pitch());
+        // Normalize Right Pitch and Yaw
+        rightPitch = normalizeDegree(rightPitch);
+        rightYaw   = normalizeDegree(rightYaw);
 
-        //todo make java method
-        //upper bound
-        right_pitch = (right_pitch > 90)  ? 90  : right_pitch;
-        //lower bound
-        right_pitch = (right_pitch < -90) ? -90 : right_pitch;
-        //normalize
-        right_pitch += 90;
+        // Get PWM values
+        rightYaw   = (int) yawDegreeToPWM(rightYaw);
+        rightPitch = (int) pitchDegreeToPWM(rightPitch);
 
-        //upper bound
-        right_yaw = (right_yaw > 90)  ? 90  : right_yaw;
-        //lower bound
-        right_yaw = (right_yaw < -90) ? -90 : right_yaw;
-        //normalize
-        right_yaw += 90;
-
-        right_yaw = (int) leftYawDegreeToPWM(right_yaw); //todo fix name
-        right_pitch = (int) leftPitchDegreeToPWM(right_pitch); // todo fix name
-
-
+        JSONObject payloadRight = new JSONObject();
         int theByte = fingersToByte(right_hand);
-
-        if( (Math.abs(old_right_pitch - right_pitch) > 5)  || (Math.abs(old_right_yaw - right_yaw) > 5) ) {
-            System.out.println("Old right Yaw: " + old_right_yaw + " Current right yaw: " + right_yaw);
-            System.out.println("Old right pitch: " + old_right_pitch + " Current right pitch: " + right_pitch);
+        if( (Math.abs(oldRightPitch - rightPitch) > 5)  || (Math.abs(oldRightYaw - rightYaw) > 5) ) {
+            System.out.println("Old right Yaw: " + oldRightYaw + " Current right yaw: " + rightYaw);
+            System.out.println("Old right pitch: " + oldRightPitch + " Current right pitch: " + rightPitch);
             try {
-                payloadright.put("right_yaw", right_yaw);
-                payloadright.put("right_pitch", right_pitch);
-                payloadright.put("right_byte", theByte);
+                payloadRight.put("right_yaw", rightYaw);
+                payloadRight.put("right_pitch", rightPitch);
+                payloadRight.put("right_byte", theByte);
             } catch (JSONException e) {
                 System.out.println(e);
             }
-            old_right_yaw = right_yaw;
-            old_right_pitch = right_pitch;
-        }
-        else{
+            oldRightYaw = rightYaw;
+            oldRightPitch = rightPitch;
+        } else {
             try {
-                payloadright.put("right_yaw", right_yaw);
-                payloadright.put("right_pitch", right_pitch);
-                payloadright.put("right_byte", theByte);
+                payloadRight.put("right_yaw", rightYaw);
+                payloadRight.put("right_pitch", rightPitch);
+                payloadRight.put("right_byte", theByte);
             } catch (JSONException e) {
                 System.out.println(e);
             }
 
         }
-        return payloadright;
+        return payloadRight;
     }
 
-    public void leapTest(Controller controller) {
-
+    public void captureFrame(Controller controller) {
         // Get the most recent frame and report some basic information
         Frame frame = controller.frame();
-
         System.out.println("**************");
+
         JSONObject payload = new JSONObject();
         for (Hand hand : frame.hands()) {
             try {
@@ -259,27 +296,35 @@ class LeapToServo {
                     payload.put("right_hand", handleRight(hand));
                 }
             } catch (JSONException e) {
-                System.out.println(e);
+                e.printStackTrace();
             }
-
         }
         if(!payload.toString().equals("{}")) {
-            pubnub.publish("my_channel", payload, new Callback() {
-            });
+            pubnub.publish("my_channel", payload, new Callback() { });
         }
 
     }
 
-    public int radiansToAdjustedDegrees(int radians){
-
-        // take radian reading and return degree value adjusted for our desired range/midpoint of servo range
-        int degrees = (int) (radians * (180 / Math.PI));
-        degrees = (int) Math.floor(degrees + 90);
-        return degrees;
+    /**
+     * Implementation of the Runnable interface.
+     */
+    public void run(){
+        for(;;) {
+            if (!running) return;
+            captureFrame(this.controller);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static void main(String[] args) {
-        LeapToServo s = new LeapToServo();
-        s.doIt();
+        String pubKey = "pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96";
+        String subKey = "sub-c-34be47b2-f776-11e4-b559-0619f8945a4f";
+
+        LeapToServo s = new LeapToServo(pubKey, subKey);
+        s.startTracking();
     }
 }

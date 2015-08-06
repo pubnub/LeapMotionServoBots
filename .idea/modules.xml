@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/LeapToServo.iml" filepath="$PROJECT_DIR$/LeapToServo.iml" />
       <module fileurl="file://$PROJECT_DIR$/SampleLeap.iml" filepath="$PROJECT_DIR$/SampleLeap.iml" />
     </modules>
   </component>
