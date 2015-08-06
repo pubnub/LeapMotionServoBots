@@ -158,7 +158,7 @@ public class LeapToServo implements Runnable{
         yaw   = (int) yawDegreeToPWM(yaw);
         pitch = (int) pitchDegreeToPWM(pitch);
 
-        JSONObject payloadLeft = new JSONObject();
+        JSONObject payload = new JSONObject();
         int theByte = fingersToByte(hand);
         int oldYaw    = (isLeft) ? oldLeftYaw   : oldRightYaw;
         int oldPitch  = (isLeft) ? oldLeftPitch : oldRightPitch;
@@ -166,9 +166,9 @@ public class LeapToServo implements Runnable{
             System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
             System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
-                payloadLeft.put(handName + "_yaw",   yaw);
-                payloadLeft.put(handName + "_pitch", pitch);
-                payloadLeft.put(handName + "_byte",  theByte);
+                payload.put(handName + "_yaw",   yaw);
+                payload.put(handName + "_pitch", pitch);
+                payload.put(handName + "_byte",  theByte);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -185,101 +185,14 @@ public class LeapToServo implements Runnable{
             System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
             System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
-                payloadLeft.put(handName + "_yaw", oldYaw);
-                payloadLeft.put(handName + "_pitch", oldPitch);
-                payloadLeft.put(handName + "_byte", theByte);
+                payload.put(handName + "_yaw", oldYaw);
+                payload.put(handName + "_pitch", oldPitch);
+                payload.put(handName + "_byte", theByte);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
-        return payloadLeft;
-    }
-
-    public JSONObject handleLeft(Hand left_hand){
-        Vector direction = left_hand.direction();
-
-        int leftYaw   = (int) Math.toDegrees(direction.yaw());
-        int leftPitch = (int) Math.toDegrees(direction.pitch());
-
-        // Normalize Yaw and Pitch
-        leftYaw    = normalizeDegree(leftYaw);
-        leftPitch *= -1;
-        leftPitch  = normalizeDegree(leftPitch);
-
-        // Get PWM Values
-        leftYaw   = (int) yawDegreeToPWM(leftYaw);
-        leftPitch = (int) pitchDegreeToPWM(leftPitch);
-
-        JSONObject payloadLeft = new JSONObject();
-        int theByte = fingersToByte(left_hand);
-        if( (Math.abs(oldLeftPitch - leftPitch) > 5)  || (Math.abs(oldLeftYaw - leftYaw) > 5) ) {
-            System.out.println("Old left Yaw: " + oldLeftYaw + " Current left yaw: " + leftYaw);
-            System.out.println("Old left pitch: " + oldLeftPitch + " Current left pitch: " + leftPitch);
-            try {
-                payloadLeft.put("left_yaw",   leftYaw);
-                payloadLeft.put("left_pitch", leftPitch);
-                payloadLeft.put("left_byte",  theByte);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            oldLeftYaw = leftYaw;
-            oldLeftPitch = leftPitch;
-        }
-        else{
-            System.out.println("Beneath the threshold");
-            System.out.println("Old left Yaw: " + oldLeftYaw + " Current left yaw: " + leftYaw);
-            System.out.println("Old left pitch: " + oldLeftPitch + " Current left pitch: " + leftPitch);
-            try {
-                payloadLeft.put("left_yaw", oldLeftYaw);
-                payloadLeft.put("left_pitch", oldLeftPitch);
-                payloadLeft.put("left_byte", theByte);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-        return payloadLeft;
-    }
-
-    public JSONObject handleRight(Hand right_hand){
-        Vector direction = right_hand.direction();
-        //Vector normal = hand.palmNormal();
-
-        int rightYaw = (int) Math.toDegrees(direction.yaw());
-        int rightPitch = (int) Math.toDegrees(direction.pitch());
-
-        // Normalize Right Pitch and Yaw
-        rightPitch = normalizeDegree(rightPitch);
-        rightYaw   = normalizeDegree(rightYaw);
-
-        // Get PWM values
-        rightYaw   = (int) yawDegreeToPWM(rightYaw);
-        rightPitch = (int) pitchDegreeToPWM(rightPitch);
-
-        JSONObject payloadRight = new JSONObject();
-        int theByte = fingersToByte(right_hand);
-        if( (Math.abs(oldRightPitch - rightPitch) > 5)  || (Math.abs(oldRightYaw - rightYaw) > 5) ) {
-            System.out.println("Old right Yaw: " + oldRightYaw + " Current right yaw: " + rightYaw);
-            System.out.println("Old right pitch: " + oldRightPitch + " Current right pitch: " + rightPitch);
-            try {
-                payloadRight.put("right_yaw", rightYaw);
-                payloadRight.put("right_pitch", rightPitch);
-                payloadRight.put("right_byte", theByte);
-            } catch (JSONException e) {
-                System.out.println(e);
-            }
-            oldRightYaw = rightYaw;
-            oldRightPitch = rightPitch;
-        } else {
-            try {
-                payloadRight.put("right_yaw", rightYaw);
-                payloadRight.put("right_pitch", rightPitch);
-                payloadRight.put("right_byte", theByte);
-            } catch (JSONException e) {
-                System.out.println(e);
-            }
-
-        }
-        return payloadRight;
+        return payload;
     }
 
     public void captureFrame(Controller controller) {
@@ -291,9 +204,9 @@ public class LeapToServo implements Runnable{
         for (Hand hand : frame.hands()) {
             try {
                 if (hand.isLeft()) {
-                    payload.put("left_hand", handleLeft(hand));
+                    payload.put("left_hand", handleHand(hand));
                 } else {
-                    payload.put("right_hand", handleRight(hand));
+                    payload.put("right_hand", handleHand(hand));
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
