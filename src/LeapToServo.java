@@ -1,20 +1,16 @@
 /******************************************************************************\
-* Copyright (C) 2012-2013 Leap Motion, Inc. All rights reserved.               *
-* Leap Motion proprietary and confidential. Not for distribution.              *
-* Use subject to the terms of the Leap Motion SDK Agreement available at       *
-* https://developer.leapmotion.com/sdk_agreement, or another agreement         *
-* between Leap Motion and you, your company or other organization.             *
+ * Author: Justin Platz : @JustinMPlatz                                        *
+ * This code is completely open-source. Do with it as you please.              *
 \******************************************************************************/
 
 import java.io.IOException;
 import java.lang.Math;
 import com.leapmotion.leap.*;
-
 import com.pubnub.api.*;
 import org.json.*;
 
 public class LeapToServo implements Runnable{
-
+    public static final String CHANNEL = "my_channel";
     private Pubnub pubnub;
     private Controller controller;
     private boolean running;
@@ -27,6 +23,43 @@ public class LeapToServo implements Runnable{
     public LeapToServo(String pubKey, String subKey){
         pubnub = new Pubnub(pubKey, subKey);
         pubnub.setUUID("LeapController");
+
+
+
+        try {
+            pubnub.subscribe("my_channel", new Callback() {
+                        @Override
+                        public void connectCallback(String channel, Object message) {
+                        }
+
+                        @Override
+                        public void disconnectCallback(String channel, Object message) {
+                            System.out.println("SUBSCRIBE : DISCONNECT on channel:" + channel
+                                    + " : " + message.getClass() + " : "
+                                    + message.toString());
+                        }
+
+                        public void reconnectCallback(String channel, Object message) {
+                            System.out.println("SUBSCRIBE : RECONNECT on channel:" + channel
+                                    + " : " + message.getClass() + " : "
+                                    + message.toString());
+                        }
+
+                        @Override
+                        public void successCallback(String channel, Object message) {
+
+                        }
+
+                        @Override
+                        public void errorCallback(String channel, PubnubError error) {
+                            System.out.println("SUBSCRIBE : ERROR on channel " + channel
+                                    + " : " + error.toString());
+                        }
+                    }
+            );
+        } catch (PubnubException e) {
+            System.out.println(e.toString());
+        }
     }
 
     public void startTracking(){
@@ -42,6 +75,7 @@ public class LeapToServo implements Runnable{
             System.in.read();
             this.running=false;
             t.join();
+            cleanup();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InterruptedException e){
@@ -163,8 +197,6 @@ public class LeapToServo implements Runnable{
         int oldYaw    = (isLeft) ? oldLeftYaw   : oldRightYaw;
         int oldPitch  = (isLeft) ? oldLeftPitch : oldRightPitch;
         if( (Math.abs(oldPitch - pitch) > 5)  || (Math.abs(oldYaw - yaw) > 5) ) {
-            System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
-            System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
                 payload.put(handName + "_yaw",   yaw);
                 payload.put(handName + "_pitch", pitch);
@@ -181,9 +213,6 @@ public class LeapToServo implements Runnable{
             }
         }
         else{
-            System.out.println("Beneath the threshold");
-            System.out.println("Old left Yaw: " + oldYaw + " Current left yaw: " + yaw);
-            System.out.println("Old left pitch: " + oldPitch + " Current left pitch: " + pitch);
             try {
                 payload.put(handName + "_yaw", oldYaw);
                 payload.put(handName + "_pitch", oldPitch);
@@ -198,8 +227,6 @@ public class LeapToServo implements Runnable{
     public void captureFrame(Controller controller) {
         // Get the most recent frame and report some basic information
         Frame frame = controller.frame();
-        System.out.println("**************");
-
         JSONObject payload = new JSONObject();
         for (Hand hand : frame.hands()) {
             try {
@@ -213,9 +240,28 @@ public class LeapToServo implements Runnable{
             }
         }
         if(!payload.toString().equals("{}")) {
-            pubnub.publish("my_channel", payload, new Callback() { });
+            pubnub.publish(CHANNEL, payload, new Callback() { });
         }
 
+    }
+
+    public void cleanup(){
+        try {
+            JSONObject payload = new JSONObject();
+            JSONObject left    = new JSONObject();
+            JSONObject right   = new JSONObject();
+            left.put("left_yaw",  400);
+            left.put("left_pitch",400);
+            left.put("left_byte", (1 << 4) - 1);
+            right.put("right_yaw",  400);
+            right.put("right_pitch",400);
+            right.put("right_byte", ((1 << 4) - 1) << 4);
+            payload.put("left_hand",  left);
+            payload.put("right_hand", right);
+            this.pubnub.publish(CHANNEL, payload, new Callback() {});
+        } catch (JSONException e){
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -223,7 +269,7 @@ public class LeapToServo implements Runnable{
      */
     public void run(){
         for(;;) {
-            if (!running) return;
+            if (!running) break;
             captureFrame(this.controller);
             try {
                 Thread.sleep(50);
