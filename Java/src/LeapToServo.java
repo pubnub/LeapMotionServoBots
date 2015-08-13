@@ -10,7 +10,7 @@ import com.pubnub.api.*;
 import org.json.*;
 
 public class LeapToServo implements Runnable{
-    public static final String CHANNEL = "my_channel";
+    public static final String CHANNEL = "leap2pi";
     private Pubnub pubnub;
     private Controller controller;
     private boolean running;
@@ -27,6 +27,7 @@ public class LeapToServo implements Runnable{
 
 
         try {
+
             pubnub.subscribe("leap2pi", new Callback() {
                         @Override
                         public void connectCallback(String channel, Object message) {

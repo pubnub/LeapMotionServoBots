@@ -1,0 +1,84 @@
+h1 {
+  font-size: 2.5rem;
+  font-family: 'Open Sans';
+  font-weight: 900;
+  text-align: center;
+  margin-top: 1rem;
+  text-transform: uppercase;
+  animation: background-move 10s infinite;
+  background: url(https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR67V7zXpaAcJ8hk9gP3qdxzeT0Z4Sba4cHEJX_q3-gigOaV1tQ);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes background-move {
+  0% {
+    background-position: 0% 0%;
+  }
+  25% {
+    background-position: 5% 10%;
+  }
+  50% {
+    background-position: 15% 15%;
+  }
+  75% {
+    background-position: 10% 5%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local("Open Sans"), local("OpenSans"), url(http://themes.googleusercontent.com/static/fonts/opensans/v7/cJZKeOuBrn4kERxqtaUH3bO3LdcAZYWl9Si6vvxL-qU.woff) format("woff");
+}
+
+
+
+
+div.photo-frame {
+  padding: 20px;
+  border: 1px solid silver;
+  display: inline-block;
+  position: relative;
+  background: white;
+  margin: 10px;
+}
+
+.photo-frame,
+.photo-frame:after,
+.photo-frame:before {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.photo-frame {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+  position: relative;
+}
+
+.photo-frame:before,
+.photo-frame:after {
+  border-radius: 90px 90px 90px 90px / 10px 10px 10px 10px;
+  bottom: 0;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  content: "";
+  left: 10px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  z-index: -1;
+}
+
+.photo-frame:after {
+  left: auto;
+  right: 10px;
+  -webkit-transform: skew(8deg) rotate(3deg);
+  -moz-transform: skew(8deg) rotate(3deg);
+  -ms-transform: skew(8deg) rotate(3deg);
+  -o-transform: skew(8deg) rotate(3deg);
+  transform: skew(8deg) rotate(3deg);
+}
