@@ -1,0 +1,36 @@
+h1 {
+  font-size: 2.2rem;
+  font-family: 'Open Sans';
+  font-weight: 900;
+  text-align: center;
+  margin-top: 1rem;
+  text-transform: uppercase;
+  animation: background-move 10s infinite;
+  background: url(https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR67V7zXpaAcJ8hk9gP3qdxzeT0Z4Sba4cHEJX_q3-gigOaV1tQ);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes background-move {
+  0% {
+    background-position: 0% 0%;
+  }
+  25% {
+    background-position: 5% 10%;
+  }
+  50% {
+    background-position: 15% 15%;
+  }
+  75% {
+    background-position: 10% 5%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local("Open Sans"), local("OpenSans"), url(http://themes.googleusercontent.com/static/fonts/opensans/v7/cJZKeOuBrn4kERxqtaUH3bO3LdcAZYWl9Si6vvxL-qU.woff) format("woff");
+}
