@@ -15,42 +15,50 @@
     
     <style>
         .left_child{
-           width: 75%;
-           margin-left:12.5%;
+           width: 30%;
+            left: -7%;
         }
         .right_child{
             float: right;
-            width: 50%;
+            width: 30%;
+            right: 12%;
         }
 
         .container{
-            text-align: center;
+        }
+        
+        .top{
+            width: 75%;
+            margin-left: 12.5%;
         }
     </style>
 </head>
     
 <body style="text-align:center; background-color: #ECF0F1;">
     <script src="http://cdn.pubnub.com/pubnub-3.7.13.min.js"></script>
-    <h1 id="javaStatus"> </h1>
-    <h1 id="rpiStatus"> </h1>
-
+   
+    <div class="photo-frame top" >
+        <h1>Pitch & Yaw as Pulse Lengths</h1> 
+        <div id="body-spline"></div>
+    </div>
+    
     <div class="container">
         
-       <div class="left_child">
-            <div id="body-spline"></div>
+       <div class="left_child photo-frame">
+            <h1>What is this ?</h1>
+            <img src="servoPWM.png" style="width:100%; height: auto;"/>
         </div>
         
-        <div class="right_child">
+        <div class="right_child photo-frame">
             <h1>Left Yaw</h1>
-            <div id="left_yaw_chart"></div> 
+            <div id="left_yaw_chart" ></div> 
             <h1>Left Pitch</h1>
             <div id="left_pitch_chart" ></div>
         </div>
         
     </div>
- 
-    <h1>What is this?</h1>
-        <img src="servoPWM.png" />
+    
+  
     
     <script>
                
