@@ -10,12 +10,13 @@ import serial
 import smbus
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(4, False)
+GPIO.setup(4, GPIO.OUT)
 GPIO.setup(15, GPIO.IN)
 
 # Reset the connected AVR Chip (matrix driver)
 def resetAVR():
-    GPIO.setup(15, False)
+    GPIO.setup(15, GPIO.OUT)
+    GPIO.output(15, False)
     time.sleep(0.25)
     GPIO.setup(15, GPIO.IN)
     time.sleep(0.25)
@@ -59,17 +60,25 @@ pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
 def main():
 
     resetAVR()
-
-    print("there")
+    print("Establishing Connections...")
     pubnub = Pubnub(publish_key   = 'pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96',
                 subscribe_key = 'sub-c-34be47b2-f776-11e4-b559-0619f8945a4f',
                 uuid = "pi")
 
     channel = 'leap2pi'
+    GPIO.output(4, False)
 
     def _connect(m):
+        print("Connected to PubNub!")
         GPIO.output(4, True)
 
+    def _reconnect(m):
+        print("Reconnected to PubNub!")
+        GPIO.output(4, True)
+
+    def _disconnect(m):
+        print("Disconnected from PubNub!")
+        GPIO.output(4, False)
 
     def _callback(m,n):
         left_byte = 0
@@ -78,16 +87,16 @@ def main():
         left_hand = m.get("left_hand",{})
         if left_hand != {}:
             left_byte = handleLeft(left_hand)
-            print(left_hand)
+            #print(left_hand)
 
         # ==============================Right Hand=============================
         right_hand = m.get("right_hand",{})
         if right_hand != {}:
             right_byte= handleRight(right_hand)
-            print(right_hand)
+            #print(right_hand)
 
         byte = left_byte | right_byte
-        print(byte)
+        #print(byte)
 
         #====send i2c=====#
         try:
@@ -104,7 +113,7 @@ def main():
         print(m)
     
     #Subscribe to subchannel, set callback function to  _callback and set error fucntion to _error
-    pubnub.subscribe(channels=channel, callback=_callback, error=_error, connect=_connect)
+    pubnub.subscribe(channels=channel, callback=_callback, error=_error, connect=_connect, reconnect=_reconnect, disconnect=_disconnect)
 
 
 # ==============================Call Main====================================
