@@ -19,7 +19,7 @@ Before we begin this tutorial, you will need several components:
 * 4x [Tower Pro Micro Servo](http://www.amazon.com/TowerPro-SG90-Mini-Servo-Accessories/dp/B001CFUBN8) 
 * [Adafruit PWM Servo Driver](https://www.adafruit.com/products/815)
 
-If you are interested in how we created a custom driver for the LED Matrices or for questions about assembling the Servo Bots check out [here](www.google.com) or the completed code located in my GitHub repo [here](https://github.com/justinplatz/LeapMotionServoBots).
+If you are interested in how we created a custom driver for the LED Matrices or for questions about assembling the Servo Bots check out [here](http://www.instructables.com/id/AVR-Dual-RGB-Matrix-Driver/) or the completed code located in my GitHub repo [here](https://github.com/justinplatz/LeapMotionServoBots).
 
 ##Publishing To PubNub With Leap Motion
 
