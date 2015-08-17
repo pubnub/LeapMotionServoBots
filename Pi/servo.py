@@ -61,8 +61,8 @@ def main():
 
     resetAVR()
     print("Establishing Connections...")
-    pubnub = Pubnub(publish_key   = 'pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96',
-                subscribe_key = 'sub-c-34be47b2-f776-11e4-b559-0619f8945a4f',
+    pubnub = Pubnub(publish_key   = 'Your_Pub_Key',
+                subscribe_key = 'Your_Sub_Key',
                 uuid = "pi")
 
     channel = 'leap2pi'
