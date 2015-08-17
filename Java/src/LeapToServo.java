@@ -281,8 +281,8 @@ public class LeapToServo implements Runnable{
     }
 
     public static void main(String[] args) {
-        String pubKey = "pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96";
-        String subKey = "sub-c-34be47b2-f776-11e4-b559-0619f8945a4f";
+        String pubKey = "Your_Pub_Key";
+        String subKey = "Your_Sub_Key";
 
         LeapToServo s = new LeapToServo(pubKey, subKey);
         s.startTracking();
