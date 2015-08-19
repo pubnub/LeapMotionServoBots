@@ -13,6 +13,9 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(4, GPIO.OUT)
 GPIO.setup(15, GPIO.IN)
 
+GPIO.setup(16, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(20, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
 # Reset the connected AVR Chip (matrix driver)
 def resetAVR():
     GPIO.setup(15, GPIO.OUT)
@@ -27,46 +30,43 @@ def _kill(m, n):
     pubnub.unsubscribe(subchannel)
 
 
-def handleLeft(left_hand):
-    left_yaw = left_hand["left_yaw"]
-    left_pitch = left_hand["left_pitch"]
-    left_byte = left_hand["left_byte"]
-    pwm.setPWM(0, 0, left_yaw)
-    pwm.setPWM(1, 1, left_pitch)
-    return left_byte
+# Servo Modes
+SERVO_MIN = 200
+SERVO_MAX = 600
 
-def handleRight(right_hand):
-    right_yaw = right_hand["right_yaw"]
-    right_pitch = right_hand["right_pitch"]
-    right_byte = right_hand["right_byte"]
-    pwm.setPWM(2, 2, right_yaw)
-    pwm.setPWM(3, 3, right_pitch)
-    return right_byte
+DISABLED = 0    # Disable Servos
+CLONE = 1       # Clone Movements ( R <-> R )
+MIRROR = 2      # Mirror Movments ( R <-> L )
+
+servo_mode = DISABLED
 
 # ==============================Servo & PWM Set Up==============================
-
-# Initialise the PWM device using the default address
-#pwm = PWM(0x40, debug=True)
 pwm = PWM(0x40)
-servoMin = 150  # Min pulse length out of 4096
-servoMax = 600  # Max pulse length out of 4096
-
 bus = smbus.SMBus(1)
-
-pwm.setPWMFreq(60)                        # Set frequency to 60 Hz
+pwm.setPWMFreq(60)
 
 # ==============================Define Main==================================
-
 def main():
 
     resetAVR()
     print("Establishing Connections...")
-    pubnub = Pubnub(publish_key   = 'Your_Pub_Key',
-                subscribe_key = 'Your_Sub_Key',
+    pubnub = Pubnub(publish_key   = 'pub-c-f83b8b34-5dbc-4502-ac34-5073f2382d96',
+                subscribe_key = 'sub-c-34be47b2-f776-11e4-b559-0619f8945a4f',
                 uuid = "pi")
 
     channel = 'leap2pi'
     GPIO.output(4, False)
+
+    def checkValue(value):
+        if (value < SERVO_MIN):
+            value = SERVO_MIN
+        elif(value > SERVO_MAX):
+            value = SERVO_MAX
+        return value
+
+    def invertValue(value):
+        value = checkValue(value)
+        return SERVO_MAX - value + SERVO_MIN
 
     def _connect(m):
         print("Connected to PubNub!")
@@ -83,28 +83,69 @@ def main():
     def _callback(m,n):
         left_byte = 0
         right_byte = 0
-        # ==============================Left Hand==============================
+        yaw = 0
+        pitch = 0
+        byte = 0
+
+        # Handle message
         left_hand = m.get("left_hand",{})
-        if left_hand != {}:
-            left_byte = handleLeft(left_hand)
-            #print(left_hand)
-
-        # ==============================Right Hand=============================
         right_hand = m.get("right_hand",{})
-        if right_hand != {}:
-            right_byte= handleRight(right_hand)
-            #print(right_hand)
 
-        byte = left_byte | right_byte
-        #print(byte)
+        if (servo_mode == MIRROR):
+            # Leap Motion: Left hand, Servos: Stage Left
+            if left_hand != {}:
+                yaw = left_hand["left_yaw"]
+                yaw = checkValue(yaw)
+                pitch = left_hand["left_pitch"]
+                pitch = checkValue(pitch)
+                left_byte = left_hand["left_byte"]
+                pwm.setPWM(0, 0, yaw)
+                pwm.setPWM(1, 1, pitch)
+            # Leap Motion: Left hand, Servos: Stage Right
+            if right_hand != {}:
+                yaw = right_hand["right_yaw"]
+                yaw = checkValue(yaw)
+                pitch = right_hand["right_pitch"]
+                pitch = checkValue(pitch)
+                right_byte = right_hand["right_byte"] >> 4
+                pwm.setPWM(2, 2, yaw)
+                pwm.setPWM(3, 3, pitch)
+
+            byte = left_byte | (right_byte << 4)
+
+        elif (servo_mode == CLONE):
+            # Leap Motion: Left hand, Servos: Stage Right
+            if left_hand != {}:
+                yaw = left_hand["left_yaw"]
+                yaw = invertValue(yaw)
+                pitch = left_hand["left_pitch"]
+                pitch = invertValue(pitch)
+                left_byte = left_hand["left_byte"]
+                pwm.setPWM(2, 2, yaw)
+                pwm.setPWM(3, 3, pitch)
+            # Leap Motion: Left hand, Servos: Stage Left
+            if right_hand != {}:
+                yaw = right_hand["right_yaw"]
+                yaw = invertValue(yaw)
+                pitch = right_hand["right_pitch"]
+                pitch = invertValue(pitch)
+                right_byte = right_hand["right_byte"] >> 4
+                pwm.setPWM(0, 0, yaw)
+                pwm.setPWM(1, 1, pitch)
+
+            byte = (left_byte << 4) | right_byte
+
+        else:
+            byte = -1
 
         #====send i2c=====#
-        try:
-            bus.write_byte(0x47,byte)
-        except IOError:
-            print("Error!!!!")
-            resetAVR()
-            bus.write_byte(0x47,byte)
+        if (byte >= 0):
+            try:
+                bus.write_byte(0x47,byte)
+            except IOError:
+                print("Error!!!!")
+                resetAVR()
+                bus.write_byte(0x47,byte)
             
 
     #Catch and Print Error
@@ -115,7 +156,16 @@ def main():
     #Subscribe to subchannel, set callback function to  _callback and set error fucntion to _error
     pubnub.subscribe(channels=channel, callback=_callback, error=_error, connect=_connect, reconnect=_reconnect, disconnect=_disconnect)
 
+    # Loop here forever
+    while True:
+        # Check for switch position
+        time.sleep(1)
+        if(GPIO.input(16) == False):
+            servo_mode = CLONE
+        elif (GPIO.input(20) == False):
+            servo_mode = MIRROR
+        else:
+            servo_mode = DISABLED
 
 # ==============================Call Main====================================
-
 main()
