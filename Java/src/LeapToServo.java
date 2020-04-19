@@ -18,7 +18,7 @@ public class LeapToServo implements Runnable{
     int oldLeftYaw    = 0;
     int oldLeftPitch  = 0;
     int oldRightYaw   = 0;
-    int oldRightPitch = 0;
+    int oldRightPitch = 3;
 
     public LeapToServo(String pubKey, String subKey){
         pubnub = new Pubnub(pubKey, subKey);
